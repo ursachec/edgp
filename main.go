@@ -2,46 +2,64 @@ package main
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"os"
 	"strings"
 )
 
+const (
+	dicePerThrow = 5
+	maxDiceValue = 6
+)
+
 func main() {
 	chosen := []string{}
 	for i := 0; i < 6; i++ {
-		// retrieve five random ints
-		diceThrows := []int64{}
-		for j := 0; j < 5; j++ {
-			five := new(big.Int).SetInt64(6)
-			res, err := rand.Int(rand.Reader, five)
-			if err != nil {
-				os.Exit(1)
-			}
-			one := new(big.Int).SetInt64(1)
-			res.Add(res, one)
-
-			diceThrows = append(diceThrows, res.Int64())
+		diceThrows, err := generateThrows(rand.Reader, dicePerThrow, maxDiceValue)
+		if err != nil {
+			os.Exit(1)
 		}
 
-		final := int64(0)
-		for idx, entry := range diceThrows {
-			if idx == 0 {
-				final += entry
-			} else {
-				final += int64(math.Pow10(idx)) * entry
-			}
-		}
-
-		if word, ok := entries[final]; ok {
+		entryID := throwsToID(diceThrows)
+		if word, ok := entries[entryID]; ok {
 			chosen = append(chosen, word)
 		} else {
 			panic("Could not find word for dice entry")
 		}
 	}
 	fmt.Println(strings.Join(chosen, " "))
+}
+
+func generateThrows(randSource io.Reader, dice, maxDiceVal int) ([]int64, error) {
+	diceThrows := []int64{}
+	for j := 0; j < dice; j++ {
+		five := new(big.Int).SetInt64(int64(maxDiceVal))
+		res, err := rand.Int(randSource, five)
+		if err != nil {
+			return []int64{}, errors.New("Could not generate random integer")
+		}
+		one := new(big.Int).SetInt64(1)
+		res.Add(res, one)
+
+		diceThrows = append(diceThrows, res.Int64())
+	}
+	return diceThrows, nil
+}
+
+func throwsToID(throws []int64) int64 {
+	final := int64(0)
+	for idx, entry := range throws {
+		if idx == 0 {
+			final += entry
+		} else {
+			final += int64(math.Pow10(idx)) * entry
+		}
+	}
+	return final
 }
 
 var entries = map[int64]string{
